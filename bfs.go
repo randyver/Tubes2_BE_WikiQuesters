@@ -99,9 +99,9 @@ func getHyperlinks(url string, visited *map[string]bool) map[string]bool {
 	return result
 }
 
-func bfsMultiThread(title1 string, title2 string) Solution {
+func bfsMultiThread(title1 string, title2 string) []Solution {
 
-	var result Solution
+	var result []Solution
 
 	// Convert titles to URLs
 	start := titleToUrl(title1)
@@ -117,11 +117,12 @@ func bfsMultiThread(title1 string, title2 string) Solution {
 	var currentDepth int
 	var wg sync.WaitGroup
 	solFound := false
+	var solLength int = 0
 
-	for theQueue.Len() != 0 && !solFound {
+	for theQueue.Len() != 0 && (!solFound || (solFound && len(theQueue.Front()) == solLength-1)) {
 
 		currentDepth = len(theQueue.Front())
-		for i := 0; i < 400; i++ {
+		for i := 0; i < 20; i++ {
 			wg.Add(1)
 			queueLock.Lock()
 			if theQueue.Len() == 0 || len(theQueue.Front()) != currentDepth {
@@ -131,12 +132,14 @@ func bfsMultiThread(title1 string, title2 string) Solution {
 			}
 			go func() {
 				if theQueue.Back()[len(theQueue.Back())-1] == end {
-					if !solFound {
-						solFound = true
-						resultLock.Lock()
-						result = theQueue.Back()
-						resultLock.Unlock()
-					}
+					solFound = true
+					solLength = currentDepth + 1
+					mapLock.Lock()
+					visited[end] = false
+					mapLock.Unlock()
+					resultLock.Lock()
+					result = append(result, theQueue.Back())
+					resultLock.Unlock()
 				}
 
 				var currentLink string
@@ -148,24 +151,27 @@ func bfsMultiThread(title1 string, title2 string) Solution {
 				currentLink = currentPath[len(currentPath)-1]
 				currentHyperlinks = getHyperlinks(currentLink, &visited)
 
-				for iter := range currentHyperlinks {
-
-					if iter == end {
+				if currentHyperlinks[end] {
+					solFound = true
+					solLength = currentDepth + 1
+					mapLock.Lock()
+					visited[end] = false
+					mapLock.Unlock()
+					resultLock.Lock()
+					result = []Solution(append(result, append(currentPath, end)))
+					resultLock.Unlock()
+				} else {
+					for iter := range currentHyperlinks {
 						if !solFound {
-							solFound = true
-							resultLock.Lock()
-							result = append(currentPath, iter)
-							resultLock.Unlock()
+							queueLock.Lock()
+							var newItem Solution
+							newItem = append(newItem, currentPath...)
+							newItem = append(newItem, iter)
+
+							theQueue.PushBack(newItem)
+							queueLock.Unlock()
 						}
 					}
-					queueLock.Lock()
-
-					var newItem Solution
-					newItem = append(newItem, currentPath...)
-					newItem = append(newItem, iter)
-
-					theQueue.PushBack(newItem)
-					queueLock.Unlock()
 				}
 				wg.Done()
 			}()
@@ -179,7 +185,7 @@ func bfsMultiThread(title1 string, title2 string) Solution {
 func main() {
 	start := time.Now()
 
-	result := bfsMultiThread("Usain bolt", "D. N. Aidit")
+	result := bfsMultiThread("Ostrich", "Camel")
 
 	// result := bfsMultiThread("Escalator etiquette", "Renier of Montferrat") : 527511 ms = 527.511 s = nyaris 14 menit
 	// result := bfsMultiThread("3,4-Epoxycyclohexylmethyl-3',4'-epoxycyclohexane carboxylate", "Umbraculum umbraculum") : 5 separation
