@@ -24,6 +24,9 @@ var bugRegex = regexp.MustCompile(`.*2024/.*`)
 
 var reqwg sync.WaitGroup
 
+var threadCount int = 200
+var waitTime float64 = 15.0
+
 func titleToUrl(title string) string {
 	return ("https://en.wikipedia.org/wiki/" + strings.Join(strings.Split(title, " "), "_"))
 }
@@ -49,14 +52,18 @@ func getHyperlinks(url string, visited *map[string]bool) map[string]bool {
 
 	if res.StatusCode != 200 {
 		fmt.Printf("Failed while opening url : %s\n", url)
-		fmt.Printf("status code error: %d %s\n\n", res.StatusCode, res.Status)
+		fmt.Printf("status code error: %d %s\n", res.StatusCode, res.Status)
 
 		if res.StatusCode == 429 {
 			reqwg.Add(1)
-			time.Sleep(15 * time.Second)
+			duration := time.Duration(waitTime * float64(time.Second))
+			fmt.Printf("Waiting %d seconds. . . . .\n", int(duration.Seconds()))
+			time.Sleep(duration)
+			fmt.Printf("Continuing...\n")
 			reqwg.Done()
 			return getHyperlinks(url, visited)
 		}
+		fmt.Printf("\n")
 		return result
 	}
 
@@ -99,13 +106,15 @@ func getHyperlinks(url string, visited *map[string]bool) map[string]bool {
 	return result
 }
 
-func bfsMultiThread(title1 string, title2 string) []Solution {
+func bfsMultiThread(title1 string, title2 string) ([]Solution, int, int) {
 
 	var result []Solution
 
 	// Convert titles to URLs
 	start := titleToUrl(title1)
 	end := titleToUrl(title2)
+
+	QueriedPage := 0
 
 	// Create a queue for storing solutions (paths)
 	var theQueue deque.Deque[Solution]
@@ -121,8 +130,9 @@ func bfsMultiThread(title1 string, title2 string) []Solution {
 
 	for theQueue.Len() != 0 && (!solFound || (solFound && len(theQueue.Front()) == solLength-1)) {
 
+		start := time.Now()
 		currentDepth = len(theQueue.Front())
-		for i := 0; i < 20; i++ {
+		for i := 0; i < threadCount; i++ {
 			wg.Add(1)
 			queueLock.Lock()
 			if theQueue.Len() == 0 || len(theQueue.Front()) != currentDepth {
@@ -150,6 +160,7 @@ func bfsMultiThread(title1 string, title2 string) []Solution {
 
 				currentLink = currentPath[len(currentPath)-1]
 				currentHyperlinks = getHyperlinks(currentLink, &visited)
+				QueriedPage += 1
 
 				if currentHyperlinks[end] {
 					solFound = true
@@ -177,15 +188,17 @@ func bfsMultiThread(title1 string, title2 string) []Solution {
 			}()
 		}
 		wg.Wait()
+		end := time.Since(start)
+		fmt.Printf("[Got %d links in %d ms, average time per link : %f ms, made %f requests/second]\n", threadCount, end.Milliseconds(), float64(end.Milliseconds())/float64(threadCount), 1000*float64(threadCount)/float64(end.Milliseconds()))
 	}
 
-	return result
+	return result, QueriedPage, len(visited)
 }
 
 func main() {
 	start := time.Now()
 
-	result := bfsMultiThread("Ostrich", "Camel")
+	result, QueriedPageCount, ObtainedLinkCount := bfsMultiThread("Car", "Main_Page")
 
 	// result := bfsMultiThread("Escalator etiquette", "Renier of Montferrat") : 527511 ms = 527.511 s = nyaris 14 menit
 	// result := bfsMultiThread("3,4-Epoxycyclohexylmethyl-3',4'-epoxycyclohexane carboxylate", "Umbraculum umbraculum") : 5 separation
@@ -195,6 +208,8 @@ func main() {
 	for _, link := range result {
 		fmt.Printf("%s\n", link)
 	}
-
-	fmt.Printf("execution time : %d ms", execution_time.Milliseconds())
+	fmt.Printf("Queried %d https pages\n", QueriedPageCount)
+	fmt.Printf("Obtained %d links\n", ObtainedLinkCount)
+	fmt.Printf("execution time : %d ms\n", execution_time.Milliseconds())
 }
+>>>>>>> Stashed changes:bfs.go
