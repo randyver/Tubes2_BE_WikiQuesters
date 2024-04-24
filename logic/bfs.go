@@ -212,4 +212,3 @@ func main() {
 	fmt.Printf("Obtained %d links\n", ObtainedLinkCount)
 	fmt.Printf("execution time : %d ms\n", execution_time.Milliseconds())
 }
->>>>>>> Stashed changes:bfs.go
