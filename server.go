@@ -2,6 +2,7 @@ package main
 
 import (
 	bfs "Tubes2_BE_WikiQuesters/logic"
+	ids "Tubes2_BE_WikiQuesters/logic/idsLogic"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -112,11 +113,11 @@ func submitHandler(c *gin.Context) {
 	var result map[string][]string
 	var time int64
 	var visited int64
-	var path_length int64
+	var path_length int
 	if formData.Algorithm == "BFS" {
 		result, time, visited, path_length = bfs.BfsMultiThread(formData.StartPage, formData.TargetPage)
 	} else if formData.Algorithm == "IDS" {
-		// do nothing
+		result, time, visited, path_length = ids.GetIdsResult(formData.StartPage, formData.TargetPage)
 	}
 
 	for path := range result {

@@ -106,7 +106,7 @@ func existInGraph(name string, graph *map[string][]QueueItem) bool {
 	return exists
 }
 
-func BfsMultiThread(title1 string, title2 string) (map[string][]string, int64, int64, int64) {
+func BfsMultiThread(title1 string, title2 string) (map[string][]string, int64, int64, int) {
 
 	startTime := time.Now()
 	graph := make(map[string][]QueueItem)
@@ -206,7 +206,7 @@ func BfsMultiThread(title1 string, title2 string) (map[string][]string, int64, i
 		outputQueue.PopFront()
 	}
 
-	return resultGraph, (elapsedTime), QueriedPage, int64(solLength)
+	return resultGraph, (elapsedTime), QueriedPage, int(solLength)
 }
 
 // func main() {

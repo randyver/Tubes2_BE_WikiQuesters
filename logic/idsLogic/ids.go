@@ -266,7 +266,7 @@ func (parent Solution) PrintPerPath(current string, firstNode string, currentOut
 	}
 }
 
-func GetIdsResult(source string, target string) (Solution, int64, int, int) {
+func GetIdsResult(source string, target string) (Solution, int64, int64, int) {
 	sourceUrl := TitleToUrl(source)
 	targetUrl := TitleToUrl(target)
 	nearbyNode := make(map[string][]string)
@@ -276,7 +276,7 @@ func GetIdsResult(source string, target string) (Solution, int64, int, int) {
 	wg.Wait()
 	solution, solutionDistance := IdsProccess(sourceUrl, targetUrl, 0, &nearbyNode)
 	execTime := time.Since(start).Milliseconds()
-	return solution, execTime, int(visitedCount), solutionDistance[targetUrl]
+	return solution, execTime, int64(visitedCount), solutionDistance[targetUrl]
 }
 
 // use example
