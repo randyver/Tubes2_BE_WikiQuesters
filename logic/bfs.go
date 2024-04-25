@@ -202,15 +202,19 @@ func BfsMultiThread(title1 string, title2 string) (map[string][]string, int64, i
 	for outputQueue.Len() != 0 {
 		for _, item := range graph[outputQueue.Front()] {
 			resultGraph[outputQueue.Front()] = append(resultGraph[outputQueue.Front()], item.name)
+			if item.name != start {
+				outputQueue.PushBack(item.name)
+			}
 		}
 		outputQueue.PopFront()
 	}
+	resultGraph[start] = []string{}
 
 	return resultGraph, (elapsedTime), QueriedPage, int(solLength)
 }
 
 // func main() {
-// 	result, time, visited, path_length := BfsMultiThread("Ostrich", "Camel")
+// 	result, time, visited, path_length := BfsMultiThread("Galileo Galilei", "Flat Eartg")
 
 // 	fmt.Println(result)
 // 	fmt.Printf("Elapsed Time : %d ms, visited nodes : %d, path length : %d\n", time, visited, path_length)

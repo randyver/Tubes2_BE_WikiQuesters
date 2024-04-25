@@ -120,12 +120,31 @@ func submitHandler(c *gin.Context) {
 		result, time, visited, path_length = ids.GetIdsResult(formData.StartPage, formData.TargetPage)
 	}
 
-	for path := range result {
-		fmt.Println(path)
+	var mapData string = ""
+
+	mapData += "[\n"
+	counter := 0
+	for key, value := range result {
+		mapData += "{\n"
+		mapData += "\"" + key + "\""
+		mapData += ":\n[\n"
+		for _, link := range value {
+			mapData += "\"" + link + "\"\n"
+			if link != value[len(value)-1] {
+				mapData += ","
+			}
+		}
+		mapData += "]\n}"
+		counter += 1
+		if counter != len(result) {
+			mapData += ","
+		}
+		mapData += "\n"
 	}
+	mapData += "]"
 
 	c.JSON(http.StatusOK, gin.H{
-		"paths":        result,
+		"paths":        mapData,
 		"time":         time,
 		"path_length":  path_length,
 		"visitedCount": visited,
