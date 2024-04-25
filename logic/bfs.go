@@ -1,4 +1,4 @@
-package main
+package bfs
 
 import (
 	"fmt"
@@ -13,11 +13,14 @@ import (
 	"github.com/gammazero/deque"
 )
 
-type Solution []string
+type QueueItem struct {
+	name  string
+	depth int
+}
 
 var queueLock sync.Mutex
 var mapLock sync.Mutex
-var resultLock sync.Mutex
+var graphLock sync.Mutex
 
 var wikiLinkRegex = regexp.MustCompile(`^/wiki/.*`)
 var bugRegex = regexp.MustCompile(`.*2024/.*`)
@@ -39,7 +42,7 @@ func getUntil(p, ms string) string {
 	return ms[0:i]
 }
 
-func getHyperlinks(url string, visited *map[string]bool) map[string]bool {
+func getHyperlinks(url string) map[string]bool {
 
 	result := make(map[string]bool)
 
@@ -61,7 +64,7 @@ func getHyperlinks(url string, visited *map[string]bool) map[string]bool {
 			time.Sleep(duration)
 			fmt.Printf("Continuing...\n")
 			reqwg.Done()
-			return getHyperlinks(url, visited)
+			return getHyperlinks(url)
 		}
 		fmt.Printf("\n")
 		return result
@@ -91,124 +94,124 @@ func getHyperlinks(url string, visited *map[string]bool) map[string]bool {
 			href = getUntil("2024/", href)
 		}
 
-		mapLock.Lock()
-		if (*visited)["https://en.wikipedia.org"+href] {
-			mapLock.Unlock()
-			return
-		}
-
 		// Get the hyperlink text (optional)
 		result["https://en.wikipedia.org"+href] = true
-		(*visited)["https://en.wikipedia.org"+href] = true
-		mapLock.Unlock()
 	})
 
 	return result
 }
 
-func bfsMultiThread(title1 string, title2 string) ([]Solution, int, int) {
+func existInGraph(name string, graph *map[string][]QueueItem) bool {
+	_, exists := (*graph)[name]
+	return exists
+}
 
-	var result []Solution
+func BfsMultiThread(title1 string, title2 string) (map[string][]string, int64, int64, int) {
+
+	startTime := time.Now()
+	graph := make(map[string][]QueueItem)
+	visited := make(map[string]bool)
 
 	// Convert titles to URLs
 	start := titleToUrl(title1)
 	end := titleToUrl(title2)
 
-	QueriedPage := 0
+	QueriedPage := int64(0)
 
 	// Create a queue for storing solutions (paths)
-	var theQueue deque.Deque[Solution]
-	theQueue.PushFront([]string{start})
-
-	// Visited URLs to avoid cycles
-	visited := map[string]bool{start: true}
+	var theQueue deque.Deque[QueueItem]
+	theQueue.PushFront(QueueItem{name: start, depth: 1})
 
 	var currentDepth int
 	var wg sync.WaitGroup
 	solFound := false
 	var solLength int = 0
 
-	for theQueue.Len() != 0 && (!solFound || (solFound && len(theQueue.Front()) == solLength-1)) {
+	for theQueue.Len() != 0 && (!solFound || (solFound && theQueue.Front().depth == solLength-1)) {
 
-		start := time.Now()
-		currentDepth = len(theQueue.Front())
+		currentDepth = theQueue.Front().depth
+		fmt.Printf("Currently at depth : %d\n", currentDepth)
 		for i := 0; i < threadCount; i++ {
 			wg.Add(1)
 			queueLock.Lock()
-			if theQueue.Len() == 0 || len(theQueue.Front()) != currentDepth {
+			if theQueue.Len() == 0 || theQueue.Front().depth != currentDepth {
 				wg.Done()
 				queueLock.Unlock()
 				break
 			}
 			go func() {
-				if theQueue.Back()[len(theQueue.Back())-1] == end {
+				if theQueue.Front().name == end {
 					solFound = true
-					solLength = currentDepth + 1
-					mapLock.Lock()
-					visited[end] = false
-					mapLock.Unlock()
-					resultLock.Lock()
-					result = append(result, theQueue.Back())
-					resultLock.Unlock()
+					solLength = currentDepth
 				}
 
-				var currentLink string
 				var currentHyperlinks map[string]bool
 
-				currentPath := theQueue.PopFront()
+				currentItem := theQueue.PopFront()
+				currentLink := currentItem.name
 				queueLock.Unlock()
-
-				currentLink = currentPath[len(currentPath)-1]
-				currentHyperlinks = getHyperlinks(currentLink, &visited)
+				mapLock.Lock()
+				if !visited[currentLink] {
+					mapLock.Unlock()
+					currentHyperlinks = getHyperlinks(currentLink)
+					mapLock.Lock()
+					visited[currentLink] = true
+				}
+				mapLock.Unlock()
 				QueriedPage += 1
 
 				if currentHyperlinks[end] {
 					solFound = true
 					solLength = currentDepth + 1
-					mapLock.Lock()
-					visited[end] = false
-					mapLock.Unlock()
-					resultLock.Lock()
-					result = []Solution(append(result, append(currentPath, end)))
-					resultLock.Unlock()
+					graph[end] = append(graph[end], QueueItem{name: currentLink, depth: currentDepth})
 				} else {
 					for iter := range currentHyperlinks {
-						if !solFound {
-							queueLock.Lock()
-							var newItem Solution
-							newItem = append(newItem, currentPath...)
-							newItem = append(newItem, iter)
-
-							theQueue.PushBack(newItem)
-							queueLock.Unlock()
+						graphLock.Lock()
+						if existInGraph(iter, &graph) {
+							if currentDepth == graph[iter][0].depth {
+								graph[iter] = append(graph[iter], QueueItem{name: currentLink, depth: currentDepth})
+							}
+						} else {
+							graph[iter] = []QueueItem{{name: currentLink, depth: currentDepth}}
 						}
+						graphLock.Unlock()
+						mapLock.Lock()
+						if !visited[iter] {
+							if iter != end {
+								queueLock.Lock()
+								var newItem QueueItem
+								newItem.name = iter
+								newItem.depth = currentDepth + 1
+								theQueue.PushBack(newItem)
+								queueLock.Unlock()
+							}
+						}
+						mapLock.Unlock()
 					}
 				}
 				wg.Done()
 			}()
 		}
 		wg.Wait()
-		end := time.Since(start)
-		fmt.Printf("[Got %d links in %d ms, average time per link : %f ms, made %f requests/second]\n", threadCount, end.Milliseconds(), float64(end.Milliseconds())/float64(threadCount), 1000*float64(threadCount)/float64(end.Milliseconds()))
+	}
+	elapsedTime := time.Since(startTime).Milliseconds()
+
+	resultGraph := make(map[string][]string)
+	var outputQueue deque.Deque[string]
+	outputQueue.PushBack(end)
+	for outputQueue.Len() != 0 {
+		for _, item := range graph[outputQueue.Front()] {
+			resultGraph[outputQueue.Front()] = append(resultGraph[outputQueue.Front()], item.name)
+		}
+		outputQueue.PopFront()
 	}
 
-	return result, QueriedPage, len(visited)
+	return resultGraph, (elapsedTime), QueriedPage, int(solLength)
 }
 
-func main() {
-	start := time.Now()
+// func main() {
+// 	result, time, visited, path_length := BfsMultiThread("Ostrich", "Camel")
 
-	result, QueriedPageCount, ObtainedLinkCount := bfsMultiThread("Car", "Main_Page")
-
-	// result := bfsMultiThread("Escalator etiquette", "Renier of Montferrat") : 527511 ms = 527.511 s = nyaris 14 menit
-	// result := bfsMultiThread("3,4-Epoxycyclohexylmethyl-3',4'-epoxycyclohexane carboxylate", "Umbraculum umbraculum") : 5 separation
-
-	execution_time := time.Since(start)
-
-	for _, link := range result {
-		fmt.Printf("%s\n", link)
-	}
-	fmt.Printf("Queried %d https pages\n", QueriedPageCount)
-	fmt.Printf("Obtained %d links\n", ObtainedLinkCount)
-	fmt.Printf("execution time : %d ms\n", execution_time.Milliseconds())
-}
+// 	fmt.Println(result)
+// 	fmt.Printf("Elapsed Time : %d ms, visited nodes : %d, path length : %d\n", time, visited, path_length)
+// }

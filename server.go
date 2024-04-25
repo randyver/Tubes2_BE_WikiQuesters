@@ -1,6 +1,8 @@
 package main
 
 import (
+	bfs "Tubes2_BE_WikiQuesters/logic"
+	ids "Tubes2_BE_WikiQuesters/logic/idsLogic"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -10,6 +12,8 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
+
+	"github.com/gin-gonic/gin"
 )
 
 type FormData struct {
@@ -18,50 +22,17 @@ type FormData struct {
 	Algorithm  string `json:"algorithm"`
 }
 
-func validateFormData(formData FormData) error {
-	// Contoh validasi sederhana
-	if formData.StartPage == "" || formData.TargetPage == "" || formData.Algorithm == "" {
-		return fmt.Errorf("incomplete form data")
-	}
-	// Tambahkan validasi lainnya di sini
-	return nil
-}
-
-func handleSubmit(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "POST" {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	var formData FormData
-	err := json.NewDecoder(r.Body).Decode(&formData)
-	if err != nil {
-		log.Printf("Failed to parse request body: %v", err)
-		http.Error(w, "Failed to parse request body", http.StatusBadRequest)
-		return
-	}
-
-	err = validateFormData(formData)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	response := map[string]string{
-		"message": fmt.Sprintf("Received Form Data: %+v", formData),
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
-}
-
 func main() {
-	server := &http.Server{
-		Addr: ":8080",
-		// Tambahkan middleware dan konfigurasi lainnya di sini
-	}
 
-	http.HandleFunc("/api/submit", handleSubmit)
+	router := gin.Default()
+	router.POST("/api/submit", submitHandler)
+
+	betterRouter := enableCORS(jsonContentTypeMiddleware(router))
+
+	server := &http.Server{
+		Addr:    ":8080",
+		Handler: betterRouter,
+	}
 
 	go func() {
 		fmt.Println("Server is listening on port 8080...")
@@ -81,4 +52,82 @@ func main() {
 	}
 
 	fmt.Println("Server exiting")
+}
+
+func enableCORS(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Set CORS headers
+		w.Header().Set("Access-Control-Allow-Origin", "*") // Allow any origin
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+
+		// Check if the request is for CORS preflight
+		if r.Method == "OPTIONS" {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		// Pass down the request to the next middleware (or final handler)
+		next.ServeHTTP(w, r)
+	})
+}
+
+func jsonContentTypeMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Set JSON Content-Type
+		w.Header().Set("Content-Type", "application/json")
+		next.ServeHTTP(w, r)
+	})
+}
+
+func validateFormData(formData FormData) error {
+	// Contoh validasi sederhana
+	if formData.StartPage == "" || formData.TargetPage == "" || formData.Algorithm == "" {
+		return fmt.Errorf("incomplete form data")
+	}
+	// Tambahkan validasi lainnya di sini
+	return nil
+}
+
+func submitHandler(c *gin.Context) {
+	r := (*(*c).Request)
+	if r.Method != "POST" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid method"})
+		return
+	}
+
+	var formData FormData
+	err := json.NewDecoder(r.Body).Decode(&formData)
+	if err != nil {
+		log.Printf("Failed to parse request body: %v", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Failed to parse request body"})
+		return
+	}
+
+	err = validateFormData(formData)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "error algorithm"})
+		return
+	}
+
+	var result map[string][]string
+	var time int64
+	var visited int64
+	var path_length int
+	if formData.Algorithm == "BFS" {
+		result, time, visited, path_length = bfs.BfsMultiThread(formData.StartPage, formData.TargetPage)
+	} else if formData.Algorithm == "IDS" {
+		result, time, visited, path_length = ids.GetIdsResult(formData.StartPage, formData.TargetPage)
+	}
+
+	for path := range result {
+		fmt.Println(path)
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"paths":        result,
+		"time":         time,
+		"path_length":  path_length,
+		"visitedCount": visited,
+	})
 }
