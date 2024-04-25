@@ -109,7 +109,7 @@ func submitHandler(c *gin.Context) {
 		return
 	}
 
-	var result map[string][]bfs.QueueItem
+	var result map[string][]string
 	var time int64
 	var visited int64
 	var path_length int64

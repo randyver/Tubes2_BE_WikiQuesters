@@ -1,4 +1,4 @@
-package main
+package bfs
 
 import (
 	"fmt"
@@ -209,9 +209,9 @@ func BfsMultiThread(title1 string, title2 string) (map[string][]string, int64, i
 	return resultGraph, (elapsedTime), QueriedPage, int64(solLength)
 }
 
-func main() {
-	result, time, visited, path_length := BfsMultiThread("Ostrich", "Camel")
+// func main() {
+// 	result, time, visited, path_length := BfsMultiThread("Ostrich", "Camel")
 
-	fmt.Println(result)
-	fmt.Printf("Elapsed Time : %d ms, visited nodes : %d, path length : %d\n", time, visited, path_length)
-}
+// 	fmt.Println(result)
+// 	fmt.Printf("Elapsed Time : %d ms, visited nodes : %d, path length : %d\n", time, visited, path_length)
+// }
