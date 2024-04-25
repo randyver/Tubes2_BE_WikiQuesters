@@ -208,12 +208,13 @@ func BfsMultiThread(title1 string, title2 string) (map[string][]string, int64, i
 		}
 		outputQueue.PopFront()
 	}
+	resultGraph[start] = []string{}
 
 	return resultGraph, (elapsedTime), QueriedPage, int(solLength)
 }
 
 // func main() {
-// 	result, time, visited, path_length := BfsMultiThread("Ostrich", "Camel")
+// 	result, time, visited, path_length := BfsMultiThread("Galileo Galilei", "Flat Eartg")
 
 // 	fmt.Println(result)
 // 	fmt.Printf("Elapsed Time : %d ms, visited nodes : %d, path length : %d\n", time, visited, path_length)
