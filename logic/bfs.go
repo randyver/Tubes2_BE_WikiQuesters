@@ -202,6 +202,9 @@ func BfsMultiThread(title1 string, title2 string) (map[string][]string, int64, i
 	for outputQueue.Len() != 0 {
 		for _, item := range graph[outputQueue.Front()] {
 			resultGraph[outputQueue.Front()] = append(resultGraph[outputQueue.Front()], item.name)
+			if item.name != start {
+				outputQueue.PushBack(item.name)
+			}
 		}
 		outputQueue.PopFront()
 	}
