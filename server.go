@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -89,6 +90,22 @@ func validateFormData(formData FormData) error {
 	return nil
 }
 
+func urlToTitle(url string) string {
+	// Check if the URL is valid
+	if !strings.HasPrefix(url, "https://en.wikipedia.org/wiki/") {
+		return ""
+	}
+
+	// Extract the part after "wiki/"
+	parts := strings.Split(url, "wiki/")
+	title := parts[1]
+
+	// Replace underscores with spaces
+	title = strings.ReplaceAll(title, "_", " ")
+
+	return title
+}
+
 func submitHandler(c *gin.Context) {
 	r := (*(*c).Request)
 	if r.Method != "POST" {
@@ -126,10 +143,10 @@ func submitHandler(c *gin.Context) {
 	counter := 0
 	for key, value := range result {
 		mapData += "{\n"
-		mapData += "\"" + key + "\""
+		mapData += "\"" + urlToTitle(key) + "\""
 		mapData += ":\n[\n"
 		for _, link := range value {
-			mapData += "\"" + link + "\"\n"
+			mapData += "\"" + urlToTitle(link) + "\"\n"
 			if link != value[len(value)-1] {
 				mapData += ","
 			}
