@@ -1,7 +1,7 @@
 package main
 
 import (
-	bfs "Tubes2_BE_WikiQuesters/logic"
+	bfs "Tubes2_BE_WikiQuesters/logic/bfsLogic"
 	ids "Tubes2_BE_WikiQuesters/logic/idsLogic"
 	"context"
 	"encoding/json"
