@@ -112,8 +112,8 @@ func dls(source string, target string, currentDepth int, maxDepth int, nearbyNod
 		(*nodeVisited)[source] = true
 		// fmt.Println("curDepth: ", currentDepth, " source: ", source)
 		if !(*childVisited)[source] {
-			visitedCount += 1
 			// read current nearby node
+			visitedCount += 1
 			readLock.Lock()
 			readCount += 1
 			if readCount == 1 {
@@ -217,19 +217,21 @@ func eliminateUnnecessarySolution(source string, target string, parent Solution,
 	return solution, solutionDistance
 }
 
-func IdsProccess(source string, target string, maxDepth int, nearbyNode *map[string][]string) (Solution, SolutionDistance) {
+func idsProccess(source string, target string, maxDepth int, nearbyNode *map[string][]string) (Solution, SolutionDistance, int64) {
 	nodeVisited := make(map[string]bool)
 	childVisited := make(map[string]bool)
 	closestDist := make(map[string]int)
 	closestDist[source] = 0
 	visitedCount = 0
 	parent := make(map[string][]string) //menunjukkan nilai parent
+	fmt.Println("maxDepth: ", maxDepth)
 	dls(source, target, maxDepth, maxDepth, nearbyNode, &parent, &nodeVisited, &childVisited, &closestDist)
 	if !nodeVisited[target] && maxDepth < 10 {
-		maxDepth += 1
-		return IdsProccess(source, target, maxDepth+1, nearbyNode)
+		return idsProccess(source, target, maxDepth+1, nearbyNode)
 	} else {
-		return eliminateUnnecessarySolution(source, target, parent, closestDist)
+		// fmt.Println("mapsekitar: ", nearbyNode)
+		solution, solutionDistance := eliminateUnnecessarySolution(source, target, parent, closestDist)
+		return solution, solutionDistance, int64(len(closestDist))
 	}
 }
 
@@ -274,9 +276,9 @@ func GetIdsResult(source string, target string) (Solution, int64, int64, int) {
 	wg.Add(1)
 	go getHyperlinks(sourceUrl, &nearbyNode)
 	wg.Wait()
-	solution, solutionDistance := IdsProccess(sourceUrl, targetUrl, 0, &nearbyNode)
+	solution, solutionDistance, pathCount := idsProccess(sourceUrl, targetUrl, 0, &nearbyNode)
 	execTime := time.Since(start).Milliseconds()
-	return solution, execTime, int64(visitedCount), solutionDistance[targetUrl]
+	return solution, int64(execTime), pathCount, solutionDistance[targetUrl]
 }
 
 // use example
