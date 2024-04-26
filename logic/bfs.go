@@ -163,7 +163,9 @@ func BfsMultiThread(title1 string, title2 string) (map[string][]string, int64, i
 				if currentHyperlinks[end] {
 					solFound = true
 					solLength = currentDepth + 1
+					graphLock.Lock()
 					graph[end] = append(graph[end], QueueItem{name: currentLink, depth: currentDepth})
+					graphLock.Unlock()
 				} else {
 					for iter := range currentHyperlinks {
 						graphLock.Lock()
