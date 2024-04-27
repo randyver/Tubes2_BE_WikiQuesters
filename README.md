@@ -40,11 +40,11 @@ Here are the requirements needed to run the program:
    ```sh
    cd Tubes2_BE_WikiQuesters
    ```
-3. Start the server by running
+3. * Start the server by running
     ```sh
     go run server.go
     ```
-    If using docker, build docker image with
+    * If using docker, build docker image with
     ```sh
     docker-compose build
     ```
