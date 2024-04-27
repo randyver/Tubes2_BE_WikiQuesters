@@ -114,7 +114,14 @@ func existInGraph(name string, graph *map[string][]QueueItem) bool {
 func BfsMultiThread(title1 string, title2 string) (map[string][]string, int64, int64, int) {
 
 	startTime := time.Now()
+
 	graph := make(map[string][]QueueItem)
+
+	if title1 == title2 {
+		resultGraph := make(map[string][]string)
+		resultGraph[title1] = []string{}
+		return resultGraph, (time.Since(startTime).Milliseconds()), 0, 1
+	}
 
 	// visited contains urls that are already scraped
 	visited := make(map[string]bool)
