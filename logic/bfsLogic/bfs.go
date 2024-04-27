@@ -49,7 +49,8 @@ func getHyperlinks(url string) map[string]bool {
 	reqwg.Wait()
 	res, err := http.Get(url)
 	if err != nil {
-		log.Fatal(err)
+		fmt.Println(err)
+		getHyperlinks(url)
 	}
 	defer res.Body.Close()
 

@@ -106,6 +106,43 @@ func urlToTitle(url string) string {
 	return title
 }
 
+func resultToJson(result map[string][]string) string {
+	var mapData string = ""
+
+	mapData += "[\n"
+	counter := 0
+	for key, value := range result {
+		mapData += "{\n"
+		mapData += "\"" + urlToTitle(key) + "\""
+		mapData += ":\n[\n"
+		for _, link := range value {
+			mapData += "\"" + urlToTitle(link) + "\"\n"
+			if link != value[len(value)-1] {
+				mapData += ","
+			}
+		}
+		mapData += "]\n}"
+		counter += 1
+		if counter != len(result) {
+			mapData += ","
+		}
+		mapData += "\n"
+	}
+	mapData += "]"
+	return mapData
+}
+
+func countPaths(result map[string][]string, end string, start string) int {
+	pathCounts := 0
+	if end == start {
+		pathCounts = 1
+	}
+	for _, child := range result[end] {
+		pathCounts += countPaths(result, child, start)
+	}
+	return pathCounts
+}
+
 func submitHandler(c *gin.Context) {
 	r := (*(*c).Request)
 	if r.Method != "POST" {
@@ -137,33 +174,14 @@ func submitHandler(c *gin.Context) {
 		result, time, visited, path_length = ids.GetIdsResult(formData.StartPage, formData.TargetPage)
 	}
 
-	var mapData string = ""
-
-	mapData += "[\n"
-	counter := 0
-	for key, value := range result {
-		mapData += "{\n"
-		mapData += "\"" + urlToTitle(key) + "\""
-		mapData += ":\n[\n"
-		for _, link := range value {
-			mapData += "\"" + urlToTitle(link) + "\"\n"
-			if link != value[len(value)-1] {
-				mapData += ","
-			}
-		}
-		mapData += "]\n}"
-		counter += 1
-		if counter != len(result) {
-			mapData += ","
-		}
-		mapData += "\n"
-	}
-	mapData += "]"
+	mapData := resultToJson(result)
+	pathCounts := countPaths(result, ids.TitleToUrl(formData.TargetPage), ids.TitleToUrl(formData.StartPage))
 
 	c.JSON(http.StatusOK, gin.H{
 		"paths":        mapData,
 		"time":         time,
 		"path_length":  path_length,
 		"visitedCount": visited,
+		"pathCount":    pathCounts,
 	})
 }
