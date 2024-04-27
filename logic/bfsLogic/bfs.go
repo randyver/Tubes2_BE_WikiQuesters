@@ -131,7 +131,7 @@ func BfsMultiThread(title1 string, title2 string) (map[string][]string, int64, i
 	for theQueue.Len() != 0 && (!solFound || (solFound && theQueue.Front().depth == solLength-1)) {
 
 		currentDepth = theQueue.Front().depth
-		fmt.Printf("Currently at depth : %d\n", currentDepth)
+		fmt.Printf("Currently at depth : %d, with %d item in queue\n", currentDepth, theQueue.Len())
 		for i := 0; i < threadCount; i++ {
 			wg.Add(1)
 			queueLock.Lock()
