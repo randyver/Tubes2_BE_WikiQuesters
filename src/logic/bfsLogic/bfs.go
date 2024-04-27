@@ -117,7 +117,7 @@ func BfsMultiThread(title1 string, title2 string) (map[string][]string, int64, i
 
 	if title1 == title2 {
 		resultGraph := make(map[string][]string)
-		resultGraph[title1] = []string{}
+		resultGraph[titleToUrl(title1)] = []string{}
 		return resultGraph, (time.Since(startTime).Milliseconds()), 0, 1
 	}
 
