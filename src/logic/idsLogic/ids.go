@@ -95,23 +95,20 @@ func getHyperlinks(url string, nearbyNode *map[string][]string) {
 
 		newNode := "https://en.wikipedia.org" + href
 		if !eksis[newNode] && newNode != url {
-			// fmt.Println(newNode)
 			eksis[newNode] = true
 			result = append(result, "https://en.wikipedia.org"+href)
 		}
 	})
-	// fmt.Println(" source: ", url)
 	writeLock.Lock()
 	(*nearbyNode)[url] = result
-	// fmt.Println(threadCount)
 	writeLock.Unlock()
 }
 
 func dls(source string, target string, currentDepth int, maxDepth int, nearbyNode *map[string][]string, parent *map[string][]string, nodeVisited *map[string]bool, childVisited *map[string]bool, closestDist *map[string]int) {
 	if currentDepth > 0 {
 		(*nodeVisited)[source] = true
-		// fmt.Println("curDepth: ", currentDepth, " source: ", source)
 		if !(*childVisited)[source] {
+
 			// read current nearby node
 			visitedCount += 1
 			readLock.Lock()
@@ -163,7 +160,7 @@ func dls(source string, target string, currentDepth int, maxDepth int, nearbyNod
 				wg.Wait()
 			}
 
-			// fmt.Println(currentNearby)
+			// visit all the child node
 			for _, node := range currentNearby {
 				_, PathExist := (*closestDist)[node]
 				if !PathExist {
@@ -182,8 +179,6 @@ func dls(source string, target string, currentDepth int, maxDepth int, nearbyNod
 						dls(node, target, currentDepth-1, maxDepth, nearbyNode, parent, nodeVisited, childVisited, closestDist)
 					}
 				}
-				// fmt.Println("Node: ", node)
-				// fmt.Println("pathLength: ", closestDist[node])
 			}
 			(*childVisited)[source] = true
 		}
@@ -223,18 +218,23 @@ func idsProccess(source string, target string, maxDepth int, nearbyNode *map[str
 	closestDist := make(map[string]int)
 	closestDist[source] = 0
 	visitedCount = 0
-	parent := make(map[string][]string) //menunjukkan nilai parent
+	parent := make(map[string][]string)
+	var emptyArrayofString []string
+	parent[source] = emptyArrayofString
+	if source == target {
+		return parent, closestDist, 0
+	}
 	fmt.Println("maxDepth: ", maxDepth)
 	dls(source, target, maxDepth, maxDepth, nearbyNode, &parent, &nodeVisited, &childVisited, &closestDist)
 	if !nodeVisited[target] && maxDepth < 10 {
 		return idsProccess(source, target, maxDepth+1, nearbyNode)
 	} else {
-		// fmt.Println("mapsekitar: ", nearbyNode)
 		solution, solutionDistance := eliminateUnnecessarySolution(source, target, parent, closestDist)
-		return solution, solutionDistance, int64(len(closestDist))
+		return solution, solutionDistance, int64(len(*nearbyNode))
 	}
 }
 
+// testing
 func (solution Solution) PrintParent(current string, target string, firstRecursive bool, AlreadyPrinted map[string]bool) {
 	if firstRecursive {
 		AlreadyPrinted = make(map[string]bool)
@@ -253,21 +253,6 @@ func (solution Solution) PrintParent(current string, target string, firstRecursi
 	}
 }
 
-func (parent Solution) PrintPerPath(current string, firstNode string, currentOutput string) {
-	if current == firstNode {
-		currentOutput = current + ", " + currentOutput
-		fmt.Println(currentOutput)
-	} else {
-		for _, currentParent := range parent[current] {
-			if currentOutput != "" {
-				parent.PrintPerPath(currentParent, firstNode, current+", "+currentOutput)
-			} else {
-				parent.PrintPerPath(currentParent, firstNode, current)
-			}
-		}
-	}
-}
-
 func GetIdsResult(source string, target string) (Solution, int64, int64, int) {
 	sourceUrl := TitleToUrl(source)
 	targetUrl := TitleToUrl(target)
@@ -276,17 +261,7 @@ func GetIdsResult(source string, target string) (Solution, int64, int64, int) {
 	wg.Add(1)
 	go getHyperlinks(sourceUrl, &nearbyNode)
 	wg.Wait()
-	solution, solutionDistance, pathCount := idsProccess(sourceUrl, targetUrl, 0, &nearbyNode)
+	solution, solutionDistance, scrapedWeb := idsProccess(sourceUrl, targetUrl, 0, &nearbyNode)
 	execTime := time.Since(start).Milliseconds()
-	return solution, int64(execTime), pathCount, solutionDistance[targetUrl]
+	return solution, int64(execTime), scrapedWeb, solutionDistance[targetUrl]
 }
-
-// use example
-// func main() {
-// 	var hasil ids.Solution
-// 	source := "Ostrich"
-// 	target := "Camel"
-// 	hasil, hasilJarak, _, _ := ids.GetIdsResult(source, target)
-// 	fmt.Println(hasil)
-// 	fmt.Println(hasilJarak)
-// }
