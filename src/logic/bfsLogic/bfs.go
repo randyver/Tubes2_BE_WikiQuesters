@@ -115,22 +115,22 @@ func BfsMultiThread(title1 string, title2 string) (map[string][]string, int64, i
 
 	startTime := time.Now()
 
-	graph := make(map[string][]QueueItem)
-
 	if title1 == title2 {
 		resultGraph := make(map[string][]string)
 		resultGraph[title1] = []string{}
 		return resultGraph, (time.Since(startTime).Milliseconds()), 0, 1
 	}
 
-	// visited contains urls that are already scraped
-	visited := make(map[string]bool)
-
 	// Convert titles to URLs
 	start := titleToUrl(title1)
 	end := titleToUrl(title2)
 
 	QueriedPage := int64(0)
+
+	graph := make(map[string][]QueueItem)
+
+	// visited contains urls that are already scraped
+	visited := make(map[string]bool)
 
 	// Create a queue for storing solutions (paths)
 	var theQueue deque.Deque[QueueItem]
@@ -172,17 +172,12 @@ func BfsMultiThread(title1 string, title2 string) (map[string][]string, int64, i
 				currentItem := theQueue.PopFront()
 				currentLink := currentItem.name
 				queueLock.Unlock()
-				mapLock.Lock()
 
-				// if the link hasn't been scraped, scrape it (should always be true)
-				if !visited[currentLink] {
-					mapLock.Unlock()
-					currentHyperlinks = getHyperlinks(currentLink)
-					mapLock.Lock()
-					visited[currentLink] = true
-				}
-				mapLock.Unlock()
+				currentHyperlinks = getHyperlinks(currentLink)
 				QueriedPage += 1
+				mapLock.Lock()
+				visited[currentLink] = true
+				mapLock.Unlock()
 
 				// if solution found, add to graph, no need to iterate further
 				if currentHyperlinks[end] {
@@ -191,7 +186,7 @@ func BfsMultiThread(title1 string, title2 string) (map[string][]string, int64, i
 					graphLock.Lock()
 					graph[end] = append(graph[end], QueueItem{name: currentLink, depth: currentDepth})
 					graphLock.Unlock()
-				} else {
+				} else if !solFound {
 					// for every link inside the hyperlink
 					for iter := range currentHyperlinks {
 						graphLock.Lock()
@@ -209,6 +204,8 @@ func BfsMultiThread(title1 string, title2 string) (map[string][]string, int64, i
 
 						// if the link hasn't been explored, add it to the queue
 						if !visited[iter] {
+							visited[iter] = true
+							mapLock.Unlock()
 							if iter != end {
 								queueLock.Lock()
 								var newItem QueueItem
@@ -217,8 +214,9 @@ func BfsMultiThread(title1 string, title2 string) (map[string][]string, int64, i
 								theQueue.PushBack(newItem)
 								queueLock.Unlock()
 							}
+						} else {
+							mapLock.Unlock()
 						}
-						mapLock.Unlock()
 					}
 				}
 				wg.Done()
