@@ -34,7 +34,7 @@ Here are the requirements needed to run the program:
 
 1. Clone the repo
    ```sh
-   git clone https://github.com/randyver/Tubes2_BE_WikiQuesters
+   git clone https://github.com/randyver/Tubes2_BE_WikiQuesters/src
    ```
 2. Change directory to the root of the cloned local repository using
    ```sh
