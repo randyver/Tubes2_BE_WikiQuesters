@@ -44,11 +44,14 @@ func getUntil(p, ms string) string {
 
 func getHyperlinks(url string) map[string]bool {
 
+	// this is a set
 	result := make(map[string]bool)
 
+	// only proceed when other thread is stuck at too many request
 	reqwg.Wait()
 	res, err := http.Get(url)
 	if err != nil {
+		// if encountered an error, try again
 		fmt.Println(err)
 		getHyperlinks(url)
 	}
@@ -59,6 +62,7 @@ func getHyperlinks(url string) map[string]bool {
 		fmt.Printf("status code error: %d %s\n", res.StatusCode, res.Status)
 
 		if res.StatusCode == 429 {
+			// too many request handler
 			reqwg.Add(1)
 			duration := time.Duration(waitTime * float64(time.Second))
 			fmt.Printf("Waiting %d seconds. . . . .\n", int(duration.Seconds()))
@@ -77,7 +81,7 @@ func getHyperlinks(url string) map[string]bool {
 		log.Fatal(err)
 	}
 
-	// Find the review items
+	// Find all the items
 	doc.Find("#content a").Each(func(i int, s *goquery.Selection) {
 
 		// Get the hyperlink URL
@@ -88,14 +92,14 @@ func getHyperlinks(url string) map[string]bool {
 		}
 
 		if !wikiLinkRegex.MatchString(href) {
-			return
+			return // skip if not a wiki link
 		}
 
 		if bugRegex.MatchString(href) {
 			href = getUntil("2024/", href)
 		}
 
-		// Get the hyperlink text (optional)
+		// Insert link into set
 		result["https://en.wikipedia.org"+href] = true
 	})
 
@@ -111,6 +115,8 @@ func BfsMultiThread(title1 string, title2 string) (map[string][]string, int64, i
 
 	startTime := time.Now()
 	graph := make(map[string][]QueueItem)
+
+	// visited contains urls that are already scraped
 	visited := make(map[string]bool)
 
 	// Convert titles to URLs
@@ -121,6 +127,8 @@ func BfsMultiThread(title1 string, title2 string) (map[string][]string, int64, i
 
 	// Create a queue for storing solutions (paths)
 	var theQueue deque.Deque[QueueItem]
+
+	// Initialize the queue with starting page
 	theQueue.PushFront(QueueItem{name: start, depth: 1})
 
 	var currentDepth int
@@ -128,13 +136,19 @@ func BfsMultiThread(title1 string, title2 string) (map[string][]string, int64, i
 	solFound := false
 	var solLength int = 0
 
+	// keep looping until queue length is 0 and solution is not found or solution is found but
+	// haven't moved on, onto the next depth
 	for theQueue.Len() != 0 && (!solFound || (solFound && theQueue.Front().depth == solLength-1)) {
 
 		currentDepth = theQueue.Front().depth
 		fmt.Printf("Currently at depth : %d, with %d item in queue\n", currentDepth, theQueue.Len())
+
+		// for loop where, every iteration is tied to it's own thread
 		for i := 0; i < threadCount; i++ {
 			wg.Add(1)
 			queueLock.Lock()
+
+			// skip if current depth is done
 			if theQueue.Len() == 0 || theQueue.Front().depth != currentDepth {
 				wg.Done()
 				queueLock.Unlock()
@@ -152,6 +166,8 @@ func BfsMultiThread(title1 string, title2 string) (map[string][]string, int64, i
 				currentLink := currentItem.name
 				queueLock.Unlock()
 				mapLock.Lock()
+
+				// if the link hasn't been scraped, scrape it (should always be true)
 				if !visited[currentLink] {
 					mapLock.Unlock()
 					currentHyperlinks = getHyperlinks(currentLink)
@@ -161,6 +177,7 @@ func BfsMultiThread(title1 string, title2 string) (map[string][]string, int64, i
 				mapLock.Unlock()
 				QueriedPage += 1
 
+				// if solution found, add to graph, no need to iterate further
 				if currentHyperlinks[end] {
 					solFound = true
 					solLength = currentDepth + 1
@@ -168,8 +185,11 @@ func BfsMultiThread(title1 string, title2 string) (map[string][]string, int64, i
 					graph[end] = append(graph[end], QueueItem{name: currentLink, depth: currentDepth})
 					graphLock.Unlock()
 				} else {
+					// for every link inside the hyperlink
 					for iter := range currentHyperlinks {
 						graphLock.Lock()
+
+						// construct the node if it doesn't exist and add edges in the graph
 						if existInGraph(iter, &graph) {
 							if currentDepth == graph[iter][0].depth {
 								graph[iter] = append(graph[iter], QueueItem{name: currentLink, depth: currentDepth})
@@ -179,6 +199,8 @@ func BfsMultiThread(title1 string, title2 string) (map[string][]string, int64, i
 						}
 						graphLock.Unlock()
 						mapLock.Lock()
+
+						// if the link hasn't been explored, add it to the queue
 						if !visited[iter] {
 							if iter != end {
 								queueLock.Lock()
@@ -199,6 +221,7 @@ func BfsMultiThread(title1 string, title2 string) (map[string][]string, int64, i
 	}
 	elapsedTime := time.Since(startTime).Milliseconds()
 
+	// construct the solution tree, using bfs from the result back to the starting node
 	resultGraph := make(map[string][]string)
 	var outputQueue deque.Deque[string]
 	outputQueue.PushBack(end)
