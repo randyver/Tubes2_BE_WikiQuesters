@@ -52,7 +52,7 @@ Here are the requirements needed to run the program:
     ```sh
     docker-compose up
     ```
-4. The server running at [http://localhost:3000](http://localhost:3000)
+4. The server running at [http://localhost:8080](http://localhost:8080)
 
 ## API Endpoints
 POST /api/submit: Submits the form data and returns the path from the start page to the target page using the selected algorithm.
